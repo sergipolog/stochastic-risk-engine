@@ -28,7 +28,7 @@ def simulate_portfolio_returns(returns: pd.DataFrame, cov_matrix: pd.DataFrame, 
 
 	return portfolio_final_values
 
-def simulate_portfolio_returns_roll(mean_returns: np.ndarray, cov_matrix: np.ndarray, M: int, P: float, num_stocks: int) -> float:
+def simulate_portfolio_returns_roll(mean_returns: np.ndarray, cov_matrix: np.ndarray, M: int, P: float, num_stocks: int) -> tuple[float,float]:
 	'''
 	Auxiliary function for rolling_engine.
 	Simulates a 1-day portfolio VaR using a multivariate normal distribution.
@@ -41,7 +41,7 @@ def simulate_portfolio_returns_roll(mean_returns: np.ndarray, cov_matrix: np.nda
 		num_stocks (int): Number of stocks in the portfolio.
 
 	Returns:
-		float: The 95% Confidence Value at Risk (VaR) for a single day.
+		tuple[float, float]: The 95% Confidence Value at Risk (VaR) and Conditional Value at Risk (CVaR) for a single day.
 	'''
 
 	simulated_returns = np.random.multivariate_normal(mean_returns, cov_matrix, size=(M, 1))
@@ -54,7 +54,9 @@ def simulate_portfolio_returns_roll(mean_returns: np.ndarray, cov_matrix: np.nda
 
 	var_95 = np.percentile(profit, 5)
 
-	return float(var_95)
+	cvar_95 = profit[profit <= var_95].mean()
+
+	return float(var_95), float(cvar_95)
 
 def rolling_engine(returns: pd.DataFrame, window_size: int, M: int, P: float) -> pd.DataFrame:
 	'''
@@ -62,8 +64,7 @@ def rolling_engine(returns: pd.DataFrame, window_size: int, M: int, P: float) ->
 
 	Parameters:
 		returns (pd.DataFrame): DataFrame containing the logarithmic returns.
-		cov_matrix (pd.DataFrame): DataFrame containing the covariance matrix of the returns.
-		T (int): Time horizon in days.
+		window_size (int): Size of the rolling window.
 		M (int): Number of simulations.
 		P (float): Portfolio value in euros.
 
@@ -80,7 +81,7 @@ def rolling_engine(returns: pd.DataFrame, window_size: int, M: int, P: float) ->
 		window_mean = historical_slice.mean().values # Calculates the mean of the returns for the current window
 		window_cov_matrix = (historical_slice.cov()).values # Calculates the covariance matrix for the current window
 
-		var_95 = simulate_portfolio_returns_roll(window_mean, window_cov_matrix, M, P, num_stocks=returns.shape[1]) # Simulates the portfolio returns for the current window
+		var_95, cvar_95 = simulate_portfolio_returns_roll(window_mean, window_cov_matrix, M, P, num_stocks=returns.shape[1]) # Simulates the portfolio returns for the current window
 
 		actual_log_returns = returns.iloc[i] # Gets the actual log returns for the current day
 
@@ -94,6 +95,7 @@ def rolling_engine(returns: pd.DataFrame, window_size: int, M: int, P: float) ->
 		results.append({
 			'Date': returns.index[i],
 			'VaR_95': var_95,
+			'CVaR_95': cvar_95,
 			'Actual_PnL': actual_pnl,
 			'Breach': breach
 		})
