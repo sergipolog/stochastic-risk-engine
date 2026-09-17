@@ -19,7 +19,7 @@ def simulate_portfolio_returns(returns: pd.DataFrame, cov_matrix: pd.DataFrame, 
 	Returns:
 		np.ndarray: Array containing the simulated portfolio final values.
 	'''
-
+	
 	simulated_returns = np.random.multivariate_normal(returns.mean().values, cov_matrix.values, size=(M,T))
 
 	cumulative_returns = np.exp(np.sum(simulated_returns, axis=1)) # Sum of returns over the time horizon for each simulation
@@ -28,7 +28,7 @@ def simulate_portfolio_returns(returns: pd.DataFrame, cov_matrix: pd.DataFrame, 
 
 	return portfolio_final_values
 
-def simulate_portfolio_returns_roll(mean_returns: np.ndarray, cov_matrix: np.ndarray, M: int, P: float, num_stocks: int) -> tuple[float,float]:
+def simulate_portfolio_returns_roll(mean_returns: np.ndarray, cov_matrix: np.ndarray, M: int, P: float, num_stocks: int, df: int = 4) -> tuple[float,float]:
 	'''
 	Auxiliary function for rolling_engine.
 	Simulates a 1-day portfolio VaR using a multivariate normal distribution.
@@ -44,7 +44,11 @@ def simulate_portfolio_returns_roll(mean_returns: np.ndarray, cov_matrix: np.nda
 		tuple[float, float]: The 95% Confidence Value at Risk (VaR) and Conditional Value at Risk (CVaR) for a single day.
 	'''
 
-	simulated_returns = np.random.multivariate_normal(mean_returns, cov_matrix, size=(M, 1))
+	# In order to simulate a multivariate t-student distribution, we have to use the multivariate normal distribution and then scale it by a chi-squared distribution.
+	Z = np.random.multivariate_normal(np.zeros(num_stocks), cov_matrix, size=(M, 1))
+	U = np.random.chisquare(df, size=(M, 1, 1)) # Degrees of freedom = 4, which is a common choice for financial returns.
+
+	simulated_returns = mean_returns + Z*np.sqrt(df/U)
 
 	cumulative_returns = np.exp(np.sum(simulated_returns, axis=1)) 
 
@@ -79,7 +83,8 @@ def rolling_engine(returns: pd.DataFrame, window_size: int, M: int, P: float) ->
 		historical_slice = returns.iloc[i-window_size:i] # Gets the historical slice of returns for the current window
 
 		window_mean = historical_slice.mean().values # Calculates the mean of the returns for the current window
-		window_cov_matrix = (historical_slice.cov()).values # Calculates the covariance matrix for the current window
+		# Calculates the covariance matrix for the current window giving more weight to recent returns using an exponentially weighted moving average with a span of 30 days.
+		window_cov_matrix = historical_slice.ewm(span=30).cov().iloc[-returns.shape[1]:, :].values
 
 		var_95, cvar_95 = simulate_portfolio_returns_roll(window_mean, window_cov_matrix, M, P, num_stocks=returns.shape[1]) # Simulates the portfolio returns for the current window
 
