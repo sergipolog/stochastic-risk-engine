@@ -13,6 +13,7 @@ if __name__ == "__main__":
 	try:
 		data = yf.download(['SAN', 'ITX.MC', 'AIR.PA', 'SIE.DE', 'IBE.MC'], start="2022-01-01", end="2025-01-01", interval='1d', group_by='ticker')
 		df = pd.DataFrame(data)
+		df = df.filter(like='Close', axis=1) # Keep only the closing prices
 		df.to_csv(destination)
 		print(df.head(10))
 		print(f"Data downloaded successfully. Saved in {destination}")
