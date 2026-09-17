@@ -5,6 +5,29 @@ Simulation module for the VAR_ENGINE project.
 import numpy as np
 import pandas as pd
 
+def simulate_portfolio_returns(returns: pd.DataFrame, cov_matrix: pd.DataFrame, T: int, M: int, P: float) -> np.ndarray:
+	'''
+	Simulates the portfolio returns using a multivariate normal distribution based on the mean and covariance of the stock returns.
+
+	Parameters:
+		returns (pd.DataFrame): DataFrame containing the logarithmic returns.
+		cov_matrix (pd.DataFrame): DataFrame containing the covariance matrix of the returns.
+		T (int): Time horizon in days.
+		M (int): Number of simulations.
+		P (float): Portfolio value in euros.
+
+	Returns:
+		np.ndarray: Array containing the simulated portfolio final values.
+	'''
+
+	simulated_returns = np.random.multivariate_normal(returns.mean().values, cov_matrix.values, size=(M,T))
+
+	cumulative_returns = np.exp(np.sum(simulated_returns, axis=1)) # Sum of returns over the time horizon for each simulation
+
+	portfolio_final_values = np.sum(P/returns.shape[1] * cumulative_returns, axis=1) # Portfolio total values
+
+	return portfolio_final_values
+
 
 if __name__ == "__main__":
 
@@ -20,11 +43,7 @@ if __name__ == "__main__":
 	# Annualized covariance matrix needs to be divided by 252 to get daily covariance
 	cov_matrix = cov_matrix / 252
 
-	simulated_returns = np.random.multivariate_normal(returns.mean().values, cov_matrix.values, size=(M,T))
-
-	cumulative_returns = np.exp(np.sum(simulated_returns, axis=1)) # Sum of returns over the time horizon for each simulation
-
-	portfolio_final_values = np.sum(P/5 * cumulative_returns, axis=1) # Portfolio total values
+	portfolio_final_values = simulate_portfolio_returns(returns, cov_matrix, T, M, P)
 
 	profit = portfolio_final_values - P # Profit distribution
 
