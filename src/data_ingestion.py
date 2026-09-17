@@ -11,7 +11,7 @@ if __name__ == "__main__":
 	destination = 'data/raw/historical_stock.csv'
 
 	try:
-		data = yf.download(['SAN', 'ITX.MC', 'AIR.PA', 'SIE.DE', 'IBE.MC'], period='3y', interval='1d', group_by='ticker')
+		data = yf.download(['SAN', 'ITX.MC', 'AIR.PA', 'SIE.DE', 'IBE.MC'], start="2022-01-01", end="2025-01-01", interval='1d', group_by='ticker')
 		df = pd.DataFrame(data)
 		df.to_csv(destination)
 		print(df.head(10))
