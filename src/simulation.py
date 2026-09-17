@@ -28,6 +28,78 @@ def simulate_portfolio_returns(returns: pd.DataFrame, cov_matrix: pd.DataFrame, 
 
 	return portfolio_final_values
 
+def simulate_portfolio_returns_roll(mean_returns: np.ndarray, cov_matrix: np.ndarray, M: int, P: float, num_stocks: int) -> float:
+	'''
+	Auxiliary function for rolling_engine.
+	Simulates a 1-day portfolio VaR using a multivariate normal distribution.
+
+	Parameters:
+		mean_returns (np.ndarray): 1D array containing the mean logarithmic returns.
+		cov_matrix (np.ndarray): 2D array containing the daily covariance matrix.
+		M (int): Number of simulations.
+		P (float): Starting portfolio value in euros.
+		num_stocks (int): Number of stocks in the portfolio.
+
+	Returns:
+		float: The 95% Confidence Value at Risk (VaR) for a single day.
+	'''
+
+	simulated_returns = np.random.multivariate_normal(mean_returns, cov_matrix, size=(M, 1))
+
+	cumulative_returns = np.exp(np.sum(simulated_returns, axis=1)) 
+
+	portfolio_final_values = np.sum((P / num_stocks) * cumulative_returns, axis=1) 
+
+	profit = portfolio_final_values - P 
+
+	var_95 = np.percentile(profit, 5)
+
+	return float(var_95)
+
+def rolling_engine(returns: pd.DataFrame, window_size: int, M: int, P: float) -> pd.DataFrame:
+	'''
+	Performs a rolling backtesting of the portfolio returns using a multivariate normal distribution based on the mean and covariance of the stock returns.
+
+	Parameters:
+		returns (pd.DataFrame): DataFrame containing the logarithmic returns.
+		cov_matrix (pd.DataFrame): DataFrame containing the covariance matrix of the returns.
+		T (int): Time horizon in days.
+		M (int): Number of simulations.
+		P (float): Portfolio value in euros.
+
+	Returns:
+		pd.DataFrame: DataFrame containing the simulated portfolio final values for each rolling window.
+	'''
+
+	n = len(returns)
+	results = []
+
+	for i in range(window_size,n):
+		historical_slice = returns.iloc[i-window_size:i] # Gets the historical slice of returns for the current window
+
+		window_mean = historical_slice.mean().values # Calculates the mean of the returns for the current window
+		window_cov_matrix = (historical_slice.cov()).values # Calculates the covariance matrix for the current window
+
+		var_95 = simulate_portfolio_returns_roll(window_mean, window_cov_matrix, M, P, num_stocks=returns.shape[1]) # Simulates the portfolio returns for the current window
+
+		actual_log_returns = returns.iloc[i] # Gets the actual log returns for the current day
+
+		# Convert the actual daily log returns to standard multipliers, applied to the cash weight
+		cash_per_stock = P / returns.shape[1]
+		actual_pnl = np.sum((np.exp(actual_log_returns) - 1) * cash_per_stock)
+
+		# Check if there is a breach of the VaR threshold
+		breach = 1 if actual_pnl < var_95 else 0
+
+		results.append({
+			'Date': returns.index[i],
+			'VaR_95': var_95,
+			'Actual_PnL': actual_pnl,
+			'Breach': breach
+		})
+
+	
+	return pd.DataFrame(results).set_index('Date')
 
 if __name__ == "__main__":
 
