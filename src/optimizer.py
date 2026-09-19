@@ -116,3 +116,43 @@ def rolling_engine_optimized(returns: pd.DataFrame, window_size: int, M: int, P:
 			print(f"Processed {i - window_size} / {n - window_size} days...")
 
 	return pd.DataFrame(results).set_index('Date')
+
+
+def calculate_cvar_with_penalty(weights: np.ndarray, simulated_multipliers: np.ndarray, P: float, current_weights: np.ndarray, penalty: float) -> float:
+	'''Calculates the 95% CVaR applying a turnover given the current weights and the new ones and applies a penalty.'''
+
+	portfolio_final_values = np.sum((P * weights) * simulated_multipliers, axis=1)
+	profit = portfolio_final_values - P
+	
+	var_95 = np.percentile(profit, 5)
+	cvar_95 = profit[profit <= var_95].mean()
+	base_cvar = np.abs(cvar_95)
+
+	turnover = np.sum(np.abs(weights - current_weights))
+
+	return base_cvar + (penalty* turnover)
+
+
+def optimize_portfolio_weights_with_penalty(simulated_multipliers: np.ndarray, P: float, num_stocks: int, current_weights: np.ndarray, penalty: float = 500) -> np.ndarray:
+	'''Finds the optimal asset weights to minimize the Expected Shortfall (CVaR).'''
+	
+	# Start with equal weights (20% each for 5 stocks)
+	init_guess = current_weights.copy()
+	
+	# No short selling (weights must be between 0 and 1)
+	bounds = tuple((0.0, 1.0) for _ in range(num_stocks))
+	
+	# The sum of all weights must exactly equal 1.0
+	constraints = ({'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0})
+	
+	# Optimizer
+	optimized_result = minimize(
+		fun=calculate_cvar_with_penalty,
+		x0=init_guess,
+		args=(simulated_multipliers, P, current_weights, penalty),
+		method='SLSQP',
+		bounds=bounds,
+		constraints=constraints
+	)
+
+	return optimized_result.x
