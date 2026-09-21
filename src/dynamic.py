@@ -20,12 +20,15 @@ def dynamic_portfolio(current_weights: dict = None, penalty: float = 500, M: int
 	P = sum(current_weights.values())
 
 	current_weights = np.array(list(current_weights.values())) / P
-	
-	print(f"Pulling 1-year live market data for {len(tickers)} assets...")
-	# Donwloads 1 year data for stocks selected
-	data = yf.download(tickers, period="1y")
-	data = pd.DataFrame(data)
-	data = data.filter(like='Close', axis=1) # Keep only the closing prices
+
+	try:
+		print(f"Pulling 1-year live market data for {len(tickers)} assets...")
+		# Donwloads 1 year data for stocks selected
+		data = yf.download(tickers, period="1y")
+		data = pd.DataFrame(data)
+		data = data.filter(like='Close', axis=1) # Keep only the closing prices
+	except Exception as e:
+		print(f"Download Error: {e}")
 
 	# Daily logarithmic returns
 	returns = np.log(data / data.shift(1)).dropna()
