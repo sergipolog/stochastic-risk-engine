@@ -6,8 +6,11 @@ from optimizer import *
 from simulation import *
 import yfinance as yf
 import pandas as pd
+import numpy as np
+import streamlit as st
 
-def dynamic_portfolio(current_weights: dict = None, M: int = 200000, df: int = 4, penalty: float = 500) -> tuple[dict, float]:
+@st.cache_data(show_spinner=False)
+def dynamic_portfolio(current_weights: dict = None, penalty: float = 500, M: int = 200000, df: int = 4) -> tuple[dict, float, float, pd.DataFrame, float]:
 	''' Pulls live data at market close and calculates tomorrow's CVaR minimized weights.'''
 
 	tickers = list(current_weights.keys())
@@ -33,6 +36,7 @@ def dynamic_portfolio(current_weights: dict = None, M: int = 200000, df: int = 4
 
 	print("Optimizing portfolio...")
 
+	np.random.seed(2026)
 	# Simulated Tomorrow's market conditions and Optimize
 	simulated_multipliers = generate_simulated_returns(latest_mean, latest_cov_matrix, M, df)
 	optimal_weights = optimize_portfolio_weights_with_penalty(simulated_multipliers, P, num_stocks, current_weights, penalty)
@@ -47,13 +51,13 @@ def dynamic_portfolio(current_weights: dict = None, M: int = 200000, df: int = 4
 	# Results
 	allocation = {tickers[i]: round(optimal_weights[i]*P,2) for i in range(num_stocks)}
 
-	return dict(sorted(allocation.items(), key=lambda item: item[1], reverse= True)), round(cvar_95,2)
+	return dict(sorted(allocation.items(), key=lambda item: item[1], reverse= True)), round(cvar_95,2), round(var_95,2), returns, profit
 
 
 if __name__ == "__main__":
 	my_portfolio = {"SAN": 50000, "SIE.DE": 20000, "IBE.MC":5000 , "ITX.MC": 5000, "REP.MC": 5000, "BBVA.MC": 5000, "AIR": 5000, "IAG.MC": 5000 }
 
-	tomorrows_weights, cvar = dynamic_portfolio(my_portfolio)
+	tomorrows_weights, cvar, var, returns,profit = dynamic_portfolio(my_portfolio)
 
 	for ticker, weight in tomorrows_weights.items():
 		print(f"{ticker}: {weight} €")

@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import yfinance as yf
+import plotly.express as px
 from dynamic import *
 
 
@@ -48,14 +49,133 @@ if st.sidebar.button("➕ Add Stock"):
 
 st.sidebar.divider()
 penalty = st.sidebar.number_input(
-	f"Turnover Penalty",
-	key="turnover",
-	min_value=0,
+	f"Broker Comission Fee (%)",
+	key="comission",
+	min_value=0.0,
+	value=0.1,
+	step=0.05,
+	help="The percentage fee your broker charges per transaction."
 )
 
 if st.sidebar.button("Run Engine"):
 	if not user_portfolio:
 		st.sidebar.error("Please enter at least one asset.")
 	else:
+
+## MAIN ##
+
 		with st.spinner("Executing live market pull & optimization..."):
-			st.write("Portfolio sent to backend", user_portfolio)
+
+			total_capital = sum(user_portfolio.values())
+
+			penalty_lambda = total_capital * (penalty/100)
+
+			try:
+				target_allocations, cvar_95, var_95, df_returns, simulated_profit = dynamic_portfolio(user_portfolio, penalty_lambda)
+
+				st.subheader("1-Day Risk Assessment")
+
+				col1,col2 = st.columns(2)
+				col1.metric("Current Capital", f"€{total_capital:,.2f}")
+				col2.metric("95% Expected Shortfall", f"€{cvar_95:,.2f}")
+
+				st.subheader("Target Allocation for Tomorrow")
+
+				df_weights = pd.DataFrame.from_dict(target_allocations,orient='index', columns = ["Target Distribution"])
+
+				st.bar_chart(df_weights)
+
+				if isinstance(df_returns.columns, pd.MultiIndex):
+					df_returns.columns = df_returns.columns.droplevel(0)
+		
+				st.divider()
+				st.subheader("Engine Analytics")
+				
+				tab1, tab2, tab3 = st.tabs(["Correlation Matrix", "Historical Stress Test", "Monte Carlo Distribution"])
+				
+				with tab1:
+					st.markdown("**Asset Correlation** (Lower is better for diversification)")
+					with st.expander("ℹ️ How to read this chart"):
+						st.write("""
+						**The Goal:** Prevent systemic failure by avoiding assets that crash together.
+						* **Dark Red (Close to 1.00):** These assets move in identical directions. Holding both concentrates your risk. 
+						* **Blue/Light Colors (Close to 0 or negative):** These assets move independently. 
+						
+						*Engine Logic:* The algorithm mathematically penalizes concentration in highly correlated assets, actively seeking independent variables to build a structural shock absorber.
+						""")
+					
+					corr_matrix = df_returns.corr() 
+
+					# Heatmap
+					fig_corr = px.imshow(
+						corr_matrix, 
+						text_auto=".2f", 
+						aspect="auto", 
+						color_continuous_scale='RdBu_r',
+						zmin=-1, 
+						zmax=1
+					)
+					st.plotly_chart(fig_corr, use_container_width=True)
+
+				with tab2:
+					st.markdown("**Simulated One Year Daily P&L vs. VaR Limit**")
+					with st.expander("ℹ️ How to read this chart"):
+						st.write("""
+						**The Goal:** Prove the mathematical limit holds up against historical reality.
+						This is a static stress test for current target weights, it applies tomorrow's optimized target weights to the past year of actual market data. 
+						* **The Blue Line:** What your daily Euro profit/loss would have been holding this exact allocation.
+						* **The Red Dots:** Market days where the crash was so severe it breached the 95% Value at Risk (VaR) limit.
+						
+						*Engine Logic:* We expect breaches roughly 5% of the time. If there are massive clusters of red dots, the market experienced sustained extreme volatility.
+						""")
+					
+					weights_array = np.array([target_allocations.get(col, 0) for col in df_returns.columns])
+					
+					# What the daily Euro profit/loss would have been historically
+					daily_pnl_euros = df_returns.dot(weights_array)
+					
+					df_pnl = pd.DataFrame({'Date': df_returns.index, 'Daily PnL (€)': daily_pnl_euros})
+					
+					# Identifies breaches
+					breaches = df_pnl[df_pnl['Daily PnL (€)'] <= var_95]
+
+					# Plot time series
+					fig_line = px.line(df_pnl, x='Date', y='Daily PnL (€)')
+					fig_line.add_hline(y=var_95, line_dash="dash", line_color="red", annotation_text="95% VaR Limit")
+					
+					# Plot breaches
+					fig_line.add_scatter(
+						x=breaches['Date'], y=breaches['Daily PnL (€)'], 
+						mode='markers', marker=dict(color='darkorange', size=8), name='VaR Breach'
+					)
+					st.plotly_chart(fig_line, use_container_width=True)
+					
+				with tab3:
+					st.markdown("**200,000 Synthetic Futures (1-Day P&L Distribution)**")
+					with st.expander("ℹ️ How to read this chart"):
+						st.write("""
+						**The Goal:** Visualize the probability of extreme tail-risk events.
+						Unlike standard models that assume perfect bell curves, this engine generates 200,000 future scenarios using a fat-tailed distribution to account for unprecedented market crashes.
+						* **The Red Line:** The 95% Value at Risk (VaR) cutoff.
+						* **The Orange Line:** The Expected Shortfall (CVaR). This is the mathematical average of the worst 5% of simulated futures.
+						
+						*Engine Logic:* The optimizer's sole objective is to push that Orange Line as far to the right (closer to zero) as mathematically possible, minimizing catastrophe.
+						""")
+					
+					# Plot the 200000 Monte Carlo outcomes
+					fig_dist = px.histogram(
+						x=simulated_profit, nbins=150, 
+						labels={'x': '1-Day Profit / Loss (€)', 'y': 'Frequency'}
+					)
+					
+					fig_dist.add_vline(x=var_95, line_dash="dash", line_color="red", annotation_text="95% VaR", annotation_position="top right")
+					fig_dist.add_vline(x=cvar_95, line_dash="dash", line_color="orange", annotation_text="95% CVaR", annotation_position="top left")
+					
+					st.plotly_chart(fig_dist, use_container_width=True)
+
+
+
+			except Exception as e:
+				st.error(f"Engine Fault: {e}")
+
+
