@@ -21,14 +21,19 @@ def dynamic_portfolio(current_weights: dict = None, penalty: float = 500, M: int
 
 	current_weights = np.array(list(current_weights.values())) / P
 
-	try:
-		print(f"Pulling 1-year live market data for {len(tickers)} assets...")
-		# Donwloads 1 year data for stocks selected
-		data = yf.download(tickers, period="1y")
-		data = pd.DataFrame(data)
-		data = data.filter(like='Close', axis=1) # Keep only the closing prices
-	except Exception as e:
-		print(f"Download Error: {e}")
+	print(f"Pulling 1-year live market data for {len(tickers)} assets...")
+	# Donwloads 1 year data for stocks selected
+	data = yf.download(tickers, period="1y")
+	data = pd.DataFrame(data)
+
+	if data.empty:
+		raise ValueError("Critical Data Failure: None of the entered tickers exist on Yahoo Finance.")
+	
+	data = data.filter(like='Close', axis=1) # Keep only the closing prices
+
+	if data.isnull().all().any():
+		raise ValueError("Invalid Ticker Detected: One or more assets could not be found. Please verify your symbols (e.g., use 'SAN.MC' for European equities).")
+
 
 	# Daily logarithmic returns
 	returns = np.log(data / data.shift(1)).dropna()
