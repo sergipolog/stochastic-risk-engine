@@ -22,7 +22,7 @@ The application bridges complex risk-modeling with an intuitive frontend, demons
 
 [Launch the Live Dashboard on Streamlit Community Cloud](https://stochastic-risk-engine.streamlit.app)
 
-`![Dashboard Preview](docs/main_1.png)`
+![Dashboard Preview](docs/main_1.png)
 
 ## 🧠 Mathematical Architecture
 
