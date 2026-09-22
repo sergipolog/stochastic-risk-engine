@@ -11,7 +11,7 @@ from dynamic import *
 
 st.title("Stochastic Risk-Management Engine")
 st.markdown("""
-**System Scope:** This engine functions as a mathematical shock absorber. It actively monitors live volatility clustering and dynamically reallocates capital to minimize the 5% Expected Shortfall (tail risk) during severe market downturns under uncertainty.
+**System Scope:** This engine functions as a mathematical shock absorber. It monitors volatility clustering and dynamically reallocates capital to minimize the 5% Expected Shortfall (tail risk) during severe market downturns under uncertainty.
 """)
 
 ## LANDING PAGE ##
@@ -134,14 +134,14 @@ if st.session_state.show_dashboard:
 				tab1, tab2, tab3 = st.tabs(["Correlation Matrix", "Historical Stress Test", "Monte Carlo Distribution"])
 				
 				with tab1:
-					st.markdown("**Asset Correlation** (Lower is better for diversification)")
+					st.markdown("**Asset Risk Profile**")
 					with st.expander("ℹ️ How to read this chart"):
 						st.write("""
-						**The Goal:** Prevent systemic failure by avoiding assets that crash together.
-						* **Dark Red (Close to 1.00):** These assets move in identical directions. Holding both concentrates your risk. 
-						* **Blue/Light Colors (Close to 0 or negative):** These assets move independently. 
+						**The Goal:** Build a structural shock absorber that prevents systemic failure while mathematically accounting for current market momentum.
+						* **Heatmap:** Dark red indicates assets that crash together. Lighter colors indicate independent variables that provide structural safety.
+						* **Risk vs. Return Profile:** The X-axis represents the severity of standalone crashes (Tail Risk), while the Y-axis tracks recent market momentum (Expected Return). 
 						
-						*Engine Logic:* The algorithm mathematically penalizes concentration in highly correlated assets, actively seeking independent variables to build a structural shock absorber.
+						*Engine Logic:* The optimizer does not blindly buy the "safest" uncorrelated asset. Instead, it balances Correlation, Standalone Tail Risk, and Expected Return. The algorithm will aggressively allocate capital to a highly volatile asset if its positive mathematical drift offsets its tail risk.
 						""")
 					
 					corr_matrix = df_returns.corr() 
@@ -153,9 +153,54 @@ if st.session_state.show_dashboard:
 						aspect="auto", 
 						color_continuous_scale='RdBu_r',
 						zmin=-1, 
-						zmax=1
+						zmax=1,
+						title = 'Asset Correlation'
 					)
+
+					asset_metrics = []
+					recent_returns = df_returns.tail(60)
+
+					for ticker in recent_returns.columns:
+						asset_returns = recent_returns[ticker].values
+						
+						# Calculates Magnitude (Risk)
+						var_95 = np.percentile(asset_returns, 5)
+						cvar_95 = abs(asset_returns[asset_returns <= var_95].mean()) * 100
+						
+						# Calculates Drift (Expected Return)
+						expected_return = asset_returns.mean() * 100 
+						
+						asset_metrics.append({'Ticker': ticker, 'Tail Risk (%)': cvar_95, 'Expected Return (%)': expected_return})
+
+					df_metrics = pd.DataFrame(asset_metrics)
+
+					# Scatter plot
+					fig_scatter = px.scatter(
+						df_metrics,
+						x='Tail Risk (%)',
+						y='Expected Return (%)',
+						text='Ticker',
+						color='Expected Return (%)',
+						color_continuous_scale='Blues',
+						title="Risk vs. Expected Return (60-Day)",
+						labels={
+							'Tail Risk (%)': 'Worst 5% Avg Daily Loss (%)',
+							'Expected Return (%)': 'Avg Daily Return (%)'
+						}
+					)
+
+					# Adjust text position so it doesn't overlap the dots
+					fig_scatter.update_traces(textposition='top center', marker=dict(size=12))
+					fig_scatter.update_layout(
+						plot_bgcolor="rgba(0,0,0,0)",
+						paper_bgcolor="rgba(0,0,0,0)",
+						coloraxis_showscale=False
+					)
+
+
 					st.plotly_chart(fig_corr, use_container_width=True)
+					st.plotly_chart(fig_scatter, use_container_width=True)
+
 
 				with tab2:
 					st.markdown("**Simulated One Year Daily P&L vs. VaR Limit**")

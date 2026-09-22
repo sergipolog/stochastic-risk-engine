@@ -22,8 +22,7 @@ The application bridges complex risk-modeling with an intuitive frontend, demons
 
 [Launch the Live Dashboard on Streamlit Community Cloud](https://stochastic-risk-engine.streamlit.app)
 
-*(Include a high-resolution screenshot of your dashboard here)*
-`![Dashboard Preview](docs/dashboard_preview.png)`
+`![Dashboard Preview](docs/main_1.png)`
 
 ## 🧠 Mathematical Architecture
 
@@ -32,6 +31,7 @@ Unlike standard mean-variance optimizers that assume normally distributed return
 * **Monte Carlo Simulation (Fat-Tail Risk):** Generates 200,000 synthetic future market scenarios using a Student's t-distribution. This captures the extreme, unprecedented market shocks that standard normal distributions ignore.
 * **Expected Shortfall (CVaR) Minimization:** The SciPy optimizer's objective function ignores average volatility and strictly targets the left tail of the distribution, minimizing the mathematical average of the worst 5% of simulated outcomes.
 * **Dynamic Turnover Penalty ($\lambda$):** Bridges theoretical math with real-world trading constraints. The engine incorporates an $L_1$ norm penalty derived directly from the user's broker commission fee. The optimizer runs a strict cost-benefit analysis, refusing to execute trades unless the reduction in risk mathematically exceeds the real-world transaction cost.
+* **Dynamic Volatility Modeling (EWMA):** To account for volatility clustering—where market shocks arrive in sudden, concentrated waves—the engine calculates a 60-day Exponentially Weighted Moving Average (EWMA) covariance matrix. Rather than diluting recent market crashes with months of calm historical data, this dynamic memory forces the optimizer to react aggressively to current market turbulence.
 
 ## ⚙️ Engineering & System Design
 
