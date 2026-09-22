@@ -164,13 +164,13 @@ if st.session_state.show_dashboard:
 						asset_returns = recent_returns[ticker].values
 						
 						# Calculates Magnitude (Risk)
-						var_95 = np.percentile(asset_returns, 5)
-						cvar_95 = abs(asset_returns[asset_returns <= var_95].mean()) * 100
+						var_risk = np.percentile(asset_returns, 5)
+						cvar_risk = abs(asset_returns[asset_returns <= var_risk].mean()) * 100
 						
 						# Calculates Drift (Expected Return)
 						expected_return = asset_returns.mean() * 100 
 						
-						asset_metrics.append({'Ticker': ticker, 'Tail Risk (%)': cvar_95, 'Expected Return (%)': expected_return})
+						asset_metrics.append({'Ticker': ticker, 'Tail Risk (%)': cvar_risk, 'Expected Return (%)': expected_return})
 
 					df_metrics = pd.DataFrame(asset_metrics)
 
