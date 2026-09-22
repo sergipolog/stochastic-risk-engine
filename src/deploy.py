@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 import plotly.express as px
+import uuid
 from dynamic import *
 
 
@@ -13,38 +14,71 @@ st.markdown("""
 **System Scope:** This engine functions as a mathematical shock absorber. It actively monitors live volatility clustering and dynamically reallocates capital to minimize the 5% Expected Shortfall (tail risk) during severe market downturns under uncertainty.
 """)
 
+## LANDING PAGE ##
+
+if 'initialized' not in st.session_state:
+	id0, id1, id2 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
+	st.session_state.row_ids = [id0, id1, id2]
+	
+	# This flag forces the dashboard to render immediately on load
+	st.session_state.show_dashboard = True 
+	
+	# Test portfolio
+	st.session_state[f"ticker_{id0}"] = "SAN.MC"
+	st.session_state[f"money_{id0}"] = 1500
+	st.session_state[f"ticker_{id1}"] = "IBE.MC"
+	st.session_state[f"money_{id1}"] = 2500
+	st.session_state[f"ticker_{id2}"] = "ITX.MC"
+	st.session_state[f"money_{id2}"] = 3500
+	
+	st.session_state.initialized = True
+
 ## SIDEBAR ##
 
-if 'row_count' not in st.session_state:
-	st.session_state.row_count = 3
 
 st.sidebar.header("Portfolio")
 
 user_portfolio = {}
 
-for i in range(st.session_state.row_count):
-	col1,col2 = st.sidebar.columns([1,1.2])
+def delete_row(row_id):
+	if len(st.session_state.row_ids) > 1:
+
+		st.session_state.row_ids.remove(row_id)
+
+		if f"ticker_{row_id}" in st.session_state:
+			del st.session_state[f"ticker_{row_id}"]
+		if f"money_{row_id}" in st.session_state:
+			del st.session_state[f"money_{row_id}"]
+		
+	else:
+			st.sidebar.warning("You must have at least one asset.")
+
+
+for row_id in st.session_state.row_ids:
+	col1,col2,col3 = st.sidebar.columns([0.8,1.2, 0.6])
 
 	ticker_val = col1.text_input(
-			f"Ticker {i}",
-			key= f"ticker_{i}",
+			f"Ticker",
+			key= f"ticker_{row_id}",
 			label_visibility= "collapsed",
-			placeholder="SAN"
+			placeholder="SAN.MC"
 	)
 
 	money_val = col2.number_input(
-			f"Money {i}",
-			key= f"money_{i}",
+			f"Money",
+			key= f"money_{row_id}",
 			min_value= 0,
 			step= 100,
 			label_visibility="collapsed"
 	)
 
+	col3.button("❌", key=f"del_{row_id}", on_click=delete_row, args=(row_id,))
+
 	if ticker_val:
 		user_portfolio[ticker_val.strip().upper()] = money_val
 
-if st.sidebar.button("➕ Add Stock"):
-	st.session_state.row_count += 1
+if st.sidebar.button("➕ Add Stock", use_container_width= True):
+	st.session_state.row_ids.append(str(uuid.uuid4()))
 	st.rerun()
 
 st.sidebar.divider()
@@ -58,26 +92,32 @@ penalty = st.sidebar.number_input(
 )
 
 if st.sidebar.button("Run Engine"):
+	st.session_state.show_dashboard = True
+
+if st.session_state.show_dashboard:
 	if not user_portfolio:
-		st.sidebar.error("Please enter at least one asset.")
+		st.warning("Please enter at least one asset in the sidebar.")
 	else:
 
 ## MAIN ##
 
 		with st.spinner("Executing live market pull & optimization..."):
 
-			total_capital = sum(user_portfolio.values())
-
-			penalty_lambda = total_capital * (penalty/100)
-
 			try:
-				target_allocations, cvar_95, var_95, df_returns, simulated_profit = dynamic_portfolio(user_portfolio, penalty_lambda)
+
+				total_capital = sum(user_portfolio.values())
+
+				target_allocations, cvar_95, var_95, df_returns, simulated_profit = dynamic_portfolio(user_portfolio, penalty)
+
+				total_turnover = sum([abs(target_allocations.get(ticker, 0) - current_val) for ticker, current_val in user_portfolio.items()])
+				total_fees = total_turnover * (penalty / 100)
 
 				st.subheader("1-Day Risk Assessment")
 
-				col1,col2 = st.columns(2)
+				col1,col2,col3 = st.columns(3)
 				col1.metric("Current Capital", f"€{total_capital:,.2f}")
 				col2.metric("95% Expected Shortfall", f"€{cvar_95:,.2f}")
+				col3.metric("Total Fees", f"€{total_fees:,.2f}")
 
 				st.subheader("Target Allocation for Tomorrow")
 
@@ -174,7 +214,8 @@ if st.sidebar.button("Run Engine"):
 					st.plotly_chart(fig_dist, use_container_width=True)
 
 
-
+			except ValueError as ve:
+				st.warning(ve)
 			except Exception as e:
 				st.error(f"Engine Fault: {e}")
 
