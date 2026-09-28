@@ -43,11 +43,13 @@ The application follows a strict Model-View-Controller (MVC) architecture, decou
 
 ## 📊 Analytics Dashboard
 
-The engine translates abstract matrix math into actionable insights via three interactive Plotly visualizations:
+The engine translates abstract matrix math into actionable insights via five interactive Plotly visualizations:
 
-1. **Correlation Matrix:** A normalized heatmap proving the engine's diversification logic by highlighting inversely correlated assets.
-2. **Historical Stress Test:** A static backtest projecting tomorrow's optimized weights against the past 252 days of actual market data, visually isolating historical VaR breaches.
-3. **Monte Carlo Distribution:** A logarithmic histogram mapping the 200,000 simulated futures, clearly delineating the 95% VaR cutoff and the Expected Shortfall zone.
+1. **Optimal Target Allocation:** A dynamic bar chart displaying the final mathematically optimized capital distribution (weights) for the next trading day.
+2. **Correlation Matrix:** A normalized heatmap proving the engine's structural diversification logic by highlighting interdependent variables.
+3. **Risk vs. Expected Return Profile:** A scatter plot demonstrating the three-dimensional balancing act of the optimizer, comparing the severity of standalone crashes (Tail Risk) against mathematical momentum (Expected Return).
+4. **Historical Stress Test:** A static backtest projecting the newly optimized weights against the past 252 days of actual market data, visually isolating historical VaR limit breaches.
+5. **Monte Carlo Distribution:** A logarithmic histogram mapping the 200,000 simulated futures, clearly delineating the 95% VaR cutoff and the Expected Shortfall zone.
 
 ## 🛠️ Technology Stack
 
@@ -63,6 +65,14 @@ To run this engine locally on your machine:
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/sergipolog/stochastic-risk-engine.git](https://github.com/sergipolog/stochastic-risk-engine.git)
-   cd stochastic-risk-engine
+   git clone https://github.com/sergipolog/stochastic-risk-engine.git risk-engine
+   cd risk-engine
+   ```
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Run the Dashboard:**
+   ```bash
+   python -m streamlit run src/deploy.py
    ```
