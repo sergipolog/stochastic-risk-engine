@@ -38,7 +38,8 @@ def dynamic_portfolio(current_weights: dict = None, penalty: float = 0.1, M: int
 		Raises:
 			ValueError: If the yfinance API returns an empty dataset or if invalid ticker symbols are detected.
 	'''
-
+	current_weights = dict(sorted(current_weights.items()))
+	
 	total_capital = sum(current_weights.values())
 
 	penalty = total_capital * (penalty/100)
