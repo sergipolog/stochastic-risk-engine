@@ -2,6 +2,11 @@
 This module contains functions to dynamically optimize and adjust the portfolio as data is introduced.
 '''
 
+from plotly import data
+from yfinance import tickers
+
+from yfinance import tickers
+
 from optimizer import *
 import yfinance as yf
 import pandas as pd
@@ -59,6 +64,10 @@ def dynamic_portfolio(current_weights: dict = None, penalty: float = 0.1, M: int
 		raise ValueError("Critical Data Failure: None of the entered tickers exist on Yahoo Finance.")
 	
 	data = data.filter(like='Close', axis=1) # Keep only the closing prices
+	if isinstance(data.columns, pd.MultiIndex):
+		data.columns = data.columns.droplevel(0)
+	if len(tickers) == 1:
+		data.columns = tickers
 
 	if data.isnull().all().any():
 		raise ValueError("Invalid Ticker Detected: One or more assets could not be found. Please verify your symbols (e.g., use 'SAN.MC' for European equities).")

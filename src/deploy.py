@@ -75,7 +75,8 @@ for row_id in st.session_state.row_ids:
 	col3.button("❌", key=f"del_{row_id}", on_click=delete_row, args=(row_id,))
 
 	if ticker_val:
-		user_portfolio[ticker_val.strip().upper()] = money_val
+		clean_ticker = ticker_val.strip().upper()
+		user_portfolio[clean_ticker] = user_portfolio.get(clean_ticker, 0) + money_val
 
 if st.sidebar.button("➕ Add Stock", use_container_width= True):
 	st.session_state.row_ids.append(str(uuid.uuid4()))
